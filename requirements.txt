@@ -1,3 +1,7 @@
 Flask==1.0.2
 flask-restful
 flask_script
+sqlalchemy
+psycopg2
+pytest
+requests
