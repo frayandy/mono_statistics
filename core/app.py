@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from core.api import Api
 from core.config import runtime_config
 from core.resources.smoke import SmokeResource
-from core.resources.users import UserResource
+from core.resources.users import UserResource, UsersResource
 from core.services.connection import get_connection
 
 app = Flask(__name__)
@@ -13,7 +13,7 @@ app.config.from_object(runtime_config())
 
 @app.before_request
 def open_session():
-    g.conn = get_connection(app.config)
+    g.conn = get_connection()
     session = sessionmaker()
     session.configure(bind=g.conn)
     g.session = session()
@@ -33,4 +33,5 @@ def close_session(e):
 
 api = Api(app, prefix='/mono-statistics')
 api.add_resource(SmokeResource, '/smoke')
+api.add_resource(UsersResource, '/users')
 api.add_resource(UserResource, '/users/<uuid:user_id>')

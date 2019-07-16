@@ -2,7 +2,7 @@ from threading import Lock
 
 from flask import current_app
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.pool import QueuePool, NullPool
 from sqlalchemy import create_engine
 
 from core.models.models import Base
@@ -23,20 +23,19 @@ def get_db_uri(user=None, password=None, host=None, port=None, db_name=None):
     )
 
 
-def get_engine(uri, autocommit=False):
+def get_engine(uri):
     global engine
 
-    params = {'isolation_level': 'AUTOCOMMIT'} if autocommit else {}
     with engine_lock:
 
         if not engine:
-            engine = create_engine(uri, poolclass=QueuePool, json_serializer=custom_json_dumps, **params)
+            engine = create_engine(uri, poolclass=QueuePool, json_serializer=custom_json_dumps)
 
         try:
             engine.execute('select 1')
         except SQLAlchemyError as e:
             logger.error(str(e))
-            engine = create_engine(uri, poolclass=QueuePool, json_serializer=custom_json_dumps, **params)
+            engine = create_engine(uri, poolclass=QueuePool, json_serializer=custom_json_dumps)
 
     return engine
 
@@ -46,18 +45,26 @@ def get_connection():
 
 
 def create_database(db_name: str = None):
-    engine = get_engine(get_db_uri(db_name=current_app.config['DEFAULT_DB']), autocommit=True)
+    default_engine = create_engine(
+        get_db_uri(db_name=current_app.config['DEFAULT_DB']), poolclass=NullPool, isolation_level='AUTOCOMMIT'
+    )
     db_name = db_name or current_app.config['DB_NAME']
-    if not engine.execute(f"SELECT 1 from pg_database WHERE datname='{db_name}'").fetchone():
-        engine.execute(f"CREATE DATABASE {db_name}")
-        Base.metadata.create_all(engine)
-    engine.dispose()
+
+    if not default_engine.execute(f"SELECT 1 from pg_database WHERE datname='{db_name}'").fetchone():
+        default_engine.execute(f"CREATE DATABASE {db_name}")
+
+        db_engine = get_engine(get_db_uri(db_name=db_name))
+        Base.metadata.create_all(db_engine)
+        db_engine.dispose()
+
+    default_engine.dispose()
 
 
 def drop_database(db_name: str = None):
-    engine = get_engine(get_db_uri(db_name=current_app.config['DEFAULT_DB']), autocommit=True)
+    default_engine = create_engine(
+        get_db_uri(db_name=current_app.config['DEFAULT_DB']), poolclass=NullPool, isolation_level='AUTOCOMMIT'
+    )
     db_name = db_name or current_app.config['DB_NAME']
-    if engine.execute(f"SELECT 1 from pg_database WHERE datname='{db_name}'").fetchone():
-        engine.execute(f"DROP DATABASE {db_name}")
-        Base.metadata.create_all(engine)
-    engine.dispose()
+    if default_engine.execute(f"SELECT 1 from pg_database WHERE datname='{db_name}'").fetchone():
+        default_engine.execute(f"DROP DATABASE {db_name}")
+    default_engine.dispose()
