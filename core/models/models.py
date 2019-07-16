@@ -1,12 +1,23 @@
-from sqlalchemy import MetaData, Table, Column, String
+import base64
+
+from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID as PUUID
+from sqlalchemy.ext.declarative import declarative_base
 
-metadata = MetaData()
+from core.utils.utils import generate_uuid
 
-users = Table(
-    'users', metadata,
-    Column('user_id', PUUID, primary_key=True),
-    Column('name', String(255)),
-    Column('surname', String(255)),
-    Column('token', String(255))
-)
+Base = declarative_base()
+
+
+class Users(Base):
+    __tablename__ = 'users'
+    user_id = Column(PUUID(as_uuid=True), primary_key=True, default=generate_uuid)
+    name = Column(String)
+    surname = Column(String)
+    token = Column(String)
+
+    def set_token(self, password):
+        self.token = base64.b64encode(password)
+
+    def decode_token(self):
+        return base64.b16decode(self.token)
