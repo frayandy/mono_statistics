@@ -4,8 +4,6 @@ import decimal
 import datetime
 import uuid
 
-from uuid import uuid4
-
 
 class Encoder(json.JSONEncoder):
     def default(self, o):
@@ -19,7 +17,3 @@ class Encoder(json.JSONEncoder):
 
 
 custom_json_dumps = functools.partial(json.dumps, cls=Encoder)
-
-
-def generate_uuid():
-    return str(uuid4())
